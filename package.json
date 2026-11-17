@@ -1,0 +1,33 @@
+{
+  "name": "runbook-run",
+  "version": "1.0.0",
+  "description": "Run step-by-step operational runbooks written in JSON, with explicit checks, manual steps and rollback hints",
+  "bin": {
+    "runbook-run": "bin/runbook.js"
+  },
+  "main": "lib/loader.js",
+  "files": [
+    "lib",
+    "bin",
+    "runbooks",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "node bin/runbook.js runbooks/env-check.json --yes",
+    "list": "node bin/runbook.js runbooks/tls-renewal.json --list"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": [
+    "runbook",
+    "ops",
+    "checklist",
+    "automation",
+    "sre",
+    "zero-dependency"
+  ],
+  "license": "SEE LICENSE IN LICENSE",
+  "private": false
+}

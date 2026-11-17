@@ -1,0 +1,33 @@
+{
+  "name": "运维前环境自检",
+  "note": "跨平台，只做只读检查。适合放在任何一次动手之前跑一遍，确认自己不是在错误的机器、错误的目录、错误的 Node 版本上操作。",
+  "vars": {},
+  "steps": [
+    {
+      "id": "node-version",
+      "title": "确认 Node 版本",
+      "run": "node -v",
+      "expect": { "regex": "^v\\d+" },
+      "note": "版本不对的时候，报错会出现在很奇怪的地方。"
+    },
+    {
+      "id": "clock",
+      "title": "确认系统时间与 UTC 偏移",
+      "run": "node -e \"const d=new Date();console.log(d.toISOString()+'  offset='+(-d.getTimezoneOffset()/60)+'h')\"",
+      "expect": { "regex": "^\\d{4}-\\d{2}-\\d{2}T" },
+      "note": "证书到期时间都是 UTC。用本地时间减 UTC 时间算天数，会差出八小时——刚好卡在你睡觉的时候过期。"
+    },
+    {
+      "id": "cwd",
+      "title": "确认当前工作目录",
+      "run": "node -e \"console.log(process.cwd())\"",
+      "note": "这条没有判定条件，人眼看一眼就行。很多事故的起点是「我以为我在测试环境」。"
+    },
+    {
+      "id": "writable",
+      "title": "确认运行用户能写当前目录",
+      "run": "node -e \"require('fs').accessSync('.',require('fs').constants.W_OK);console.log('writable')\"",
+      "expect": { "contains": "writable" }
+    }
+  ]
+}

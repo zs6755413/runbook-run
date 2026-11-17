@@ -1,0 +1,69 @@
+{
+  "name": "TLS 证书轮换（源站 + 边缘两层）",
+  "note": "顺序不能反：先源站、后边缘。反过来做，边缘换了新证但源站还是旧的，回源那一段握手又开始报错，而报错信息完全看不出是这个原因。",
+  "vars": {
+    "domain": "www.example.com",
+    "certDir": "/etc/nginx/cert",
+    "webroot": "/var/www/site"
+  },
+  "steps": [
+    {
+      "id": "precheck-public",
+      "title": "看公网现在拿到的是哪张证书",
+      "run": "echo | openssl s_client -servername {{domain}} -connect {{domain}}:443 2>/dev/null | openssl x509 -noout -subject -dates -serial",
+      "expect": { "contains": "notAfter" },
+      "note": "这是唯一的验收标准。面板、监控、浏览器小锁都不算证据。把 notAfter 记下来，最后一步要和它对比。"
+    },
+    {
+      "id": "precheck-origin",
+      "title": "看源站自己给的是哪张",
+      "run": "echo | openssl s_client -servername {{domain}} -connect 127.0.0.1:443 2>/dev/null | openssl x509 -noout -subject -dates -serial",
+      "expect": { "contains": "notAfter" },
+      "note": "必须在源站本机上跑。-servername 不能省，同一个 IP 上挂了多个站时，不带 SNI 拿到的是默认站点那张，然后你会对着一个不相干的域名研究半天。"
+    },
+    {
+      "id": "backup",
+      "title": "备份现有证书文件",
+      "manual": true,
+      "note": "私钥不是能重新生成的东西，丢了就是丢了。备份加日期后缀，别用 bak 这种名字——三个月后你分不清哪个 bak 是哪个。"
+    },
+    {
+      "id": "issue",
+      "title": "签发新证书",
+      "manual": true,
+      "note": "签发之前先在 webroot 下扔个测试文件，从公网 curl 一次，确认校验路径通。这一步两分钟，能省半小时排查。"
+    },
+    {
+      "id": "install",
+      "title": "安装到 nginx 引用位置并 reload",
+      "manual": true,
+      "note": "装完立刻回到 precheck-origin 那条命令验一次。源站没换好就去动边缘，是把一个坑变成两个坑。"
+    },
+    {
+      "id": "verify-origin",
+      "title": "确认源站已经换成新证",
+      "run": "echo | openssl s_client -servername {{domain}} -connect 127.0.0.1:443 2>/dev/null | openssl x509 -noout -enddate",
+      "expect": { "contains": "notAfter" },
+      "note": "如果这里没变，说明 nginx 没 reload 成功，或者引用的根本不是你以为的那个文件。先 grep 一遍 ssl_certificate 指向哪里。"
+    },
+    {
+      "id": "edge-swap",
+      "title": "在边缘控制台替换证书",
+      "manual": true,
+      "note": "上传新证书、绑定域名、提交。提交完就等着，别点第二次——进度条在转不代表没生效，证书早就下发到能服务的那批节点上了。判断生效只看公网握手。"
+    },
+    {
+      "id": "verify-public",
+      "title": "确认公网已经换成新证",
+      "run": "echo | openssl s_client -servername {{domain}} -connect {{domain}}:443 2>/dev/null | openssl x509 -noout -enddate",
+      "expect": { "contains": "notAfter" },
+      "note": "和 precheck-public 记下的日期对比。变了才算完，没变就是边缘还没下发，等十分钟再看，别急着重传。"
+    },
+    {
+      "id": "record",
+      "title": "在证书列表里写一句为什么换",
+      "manual": true,
+      "note": "别只写「续期」。写清楚这次是什么触发的、换的是哪张、旧的那张什么状态。一年后你打开列表看到两张名字差不多的证书，唯一能救你的就是这句备注。"
+    }
+  ]
+}
